@@ -10,5 +10,6 @@
     "newLine": {
         "useSystemDefault": true,
         "value": ""
-    }
+    },
+    "outputDir": "./output"
 }

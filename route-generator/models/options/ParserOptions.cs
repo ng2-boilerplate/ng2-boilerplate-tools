@@ -4,4 +4,5 @@ public class ParserOptions
     public bool trailingComma { get; set; }
     public Tab tab { get; set; }
     public NewLine newLine { get; set; }
+    public string outputDir { get; set; }
 }

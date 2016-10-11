@@ -1,15 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-public class PostmanParser
+public class PostmanParser: IParser
 {
-    private static ParserOptions options;
-    public PostmanData data;
+    public static ParserOptions options;
+    private PostmanData data;
 
-    public static async Task<PostmanParser> CreateInstance(FileInfo postmanJson)
+    public static async Task<IParser> CreateInstance(FileInfo postmanJson)
     {
         using (StreamReader stream = new StreamReader(postmanJson.Open(FileMode.Open)))
         {
@@ -33,7 +35,35 @@ public class PostmanParser
         data = requests;
     }
 
-    public string RouteEntry(string method, string route, object data)
+    public EndpointFile[] Generate()
+    {
+        List<EndpointFile> files = new List<EndpointFile>();
+
+        foreach (var controller in data.item)
+        {
+            var builder = new StringBuilder();
+            foreach (var endpoint in controller.item)
+            {
+                var method = endpoint.request.method.ToLower();
+
+                var url = options.urlEnvironmentVariable.isAvailable ?
+                endpoint.request.url.Replace(options.urlEnvironmentVariable.identifier, string.Empty) :
+                endpoint.request.url;
+
+                var data = JsonConvert.DeserializeObject(endpoint.response.Any() ? endpoint.response.First().body : "{}");
+
+                builder.AppendLine(RouteEntry(method, url, data));
+            }
+            var contents = RouteDefinition(controller.name.Replace(" ", string.Empty), builder.ToString());
+            files.Add(new EndpointFile(controller.name, contents));
+        }
+        files.ForEach((file) => {
+            Console.WriteLine(file);
+        });
+        return files.ToArray();
+    }
+
+    private string RouteEntry(string method, string route, object data)
     {
         StringBuilder builder = new StringBuilder();
 
@@ -78,7 +108,7 @@ public class PostmanParser
 
         builder.Clear();
 
-        for(var i = 0; i < routeEntryLines.Length; i++)
+        for (var i = 0; i < routeEntryLines.Length; i++)
         {
             builder.AppendLine($"{options.tab.value}{options.tab.value}{routeEntryLines[i]}");
         }
@@ -88,10 +118,10 @@ public class PostmanParser
         return finalRoute;
     }
 
-    public string RouteDefinition(string className, string[] routes)
+    private string RouteDefinition(string className, string routes)
     {
         return File.ReadAllText("./templates/route.definition.ts")
         .Replace("<--CLASS-->", className)
-        .Replace("<--ROUTES-->", string.Join(options.newLine.value, routes));
+        .Replace("<--ROUTES-->", routes);
     }
 }
