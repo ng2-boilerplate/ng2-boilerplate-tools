@@ -11,5 +11,7 @@
         "useSystemDefault": true,
         "value": ""
     },
-    "outputDir": "./output"
+    "outputDir": "./output",
+    "prependToInternalUrl": "${config.endpoint}",
+    "ignoreExternalUrls": true
 }

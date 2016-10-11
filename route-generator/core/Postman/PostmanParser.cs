@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-public class PostmanParser: IParser
+public class PostmanParser : IParser
 {
     public static ParserOptions options;
     private PostmanData data;
@@ -45,21 +45,41 @@ public class PostmanParser: IParser
             foreach (var endpoint in controller.item)
             {
                 var method = endpoint.request.method.ToLower();
+                var isOutgoingUrl = endpoint.request.url.Contains("http://") || endpoint.request.url.Contains("https://");
+                string url = string.Empty;
 
-                var url = options.urlEnvironmentVariable.isAvailable ?
-                endpoint.request.url.Replace(options.urlEnvironmentVariable.identifier, string.Empty) :
-                endpoint.request.url;
+                if (!isOutgoingUrl)
+                {
+                    url = options.urlEnvironmentVariable.isAvailable ?
+                          endpoint.request.url.Replace(options.urlEnvironmentVariable.identifier, string.Empty) :
+                          endpoint.request.url;
+                    url = $"{options.prependToInternalUrl}{url}";
+                }
 
-                var data = JsonConvert.DeserializeObject(endpoint.response.Any() ? endpoint.response.First().body : "{}");
+                else
+                {
+                    url = !options.ignoreExternalUrls ?
+                          endpoint.request.url :
+                          string.Empty;
+                }
+
+                if (url == string.Empty)
+                {
+                    continue;
+                }
+
+                var data = JsonConvert.DeserializeObject(endpoint.response.Any() ? endpoint.response.First().body : "{ 'routerGenerator': 'No saved response was found!' }");
 
                 builder.AppendLine(RouteEntry(method, url, data));
             }
-            var contents = RouteDefinition(controller.name.Replace(" ", string.Empty), builder.ToString());
-            files.Add(new EndpointFile(controller.name, contents));
+            var routes = builder.ToString();
+            if (routes.Length > 0)
+            {
+                var contents = RouteDefinition(controller.name.Replace(" ", string.Empty), routes);
+                files.Add(new EndpointFile(controller.name, contents));
+            }
         }
-        files.ForEach((file) => {
-            Console.WriteLine(file);
-        });
+
         return files.ToArray();
     }
 
