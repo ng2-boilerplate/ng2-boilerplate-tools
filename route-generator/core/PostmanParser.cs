@@ -1,24 +1,12 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-internal static class StringExtensions
-{
-    public static string[] Split(this string str, string split, int limit = 50)
-    {
-        return str.Split(new string[] { str }, limit, StringSplitOptions.RemoveEmptyEntries);
-    }
-}
-
 public class PostmanParser
 {
-    private static bool useTab = false;
-    private static bool trailingComma = true;
-    private static string tab = useTab ? "\t" : "    ";
-    private static string comma = ",";
-    private static string newLine = Environment.NewLine;
-
+    private static ParserOptions options;
     public PostmanData data;
 
     public static async Task<PostmanParser> CreateInstance(FileInfo postmanJson)
@@ -31,6 +19,15 @@ public class PostmanParser
         }
     }
 
+    static PostmanParser()
+    {
+        options = JsonConvert.DeserializeObject<ParserOptions>(File.ReadAllText("./routegen.json"));
+        if (options.newLine.useSystemDefault)
+        {
+            options.newLine.value = Environment.NewLine;
+        }
+    }
+
     public PostmanParser(PostmanData requests)
     {
         data = requests;
@@ -38,25 +35,63 @@ public class PostmanParser
 
     public string RouteEntry(string method, string route, object data)
     {
+        StringBuilder builder = new StringBuilder();
+
         var jsonLines = JsonConvert
         .SerializeObject(data, Formatting.Indented)
-        .Split(newLine);
+        .Split(new string[] { options.newLine.value }, 50, StringSplitOptions.RemoveEmptyEntries);
 
-        for (int i = 1; i < jsonLines.Length; i++)
+        for (int i = 0; i < jsonLines.Length; i++)
         {
-            jsonLines[i] = tab + jsonLines[i] + (i == jsonLines.Length - 2 ? comma : string.Empty);
+            if (i == 0)
+            {
+                builder.AppendLine(jsonLines[i]); continue;
+            }
+
+            if (i == jsonLines.Length - 1)
+            {
+                var noNewLine = jsonLines[i].Replace(options.newLine.value, string.Empty);
+                builder.Append($"{options.tab.value}{noNewLine}");
+                continue;
+            }
+
+            if (i > 0)
+            {
+                builder.Append(options.tab.value);
+                builder.Append(jsonLines[i]);
+                var isLastProperty = i == jsonLines.Length - 2 && options.trailingComma;
+                if (isLastProperty)
+                {
+                    builder.Append(",");
+                }
+                builder.AppendLine();
+            }
         }
 
-        return File.ReadAllText("./templates/route.entry.ts")
+        var finalJson = builder.ToString();
+
+        var routeEntryLines = File.ReadAllText("./templates/route.entry.ts")
         .Replace("<--METHOD-->", method)
         .Replace("<--ROUTE-->", route)
-        .Replace("<--JSON-->", string.Join(newLine, jsonLines));
+        .Replace("<--JSON-->", finalJson)
+        .Split(new string[] { options.newLine.value }, 50, StringSplitOptions.RemoveEmptyEntries);
+
+        builder.Clear();
+
+        for(var i = 0; i < routeEntryLines.Length; i++)
+        {
+            builder.AppendLine($"{options.tab.value}{options.tab.value}{routeEntryLines[i]}");
+        }
+
+        var finalRoute = builder.ToString();
+
+        return finalRoute;
     }
 
     public string RouteDefinition(string className, string[] routes)
     {
         return File.ReadAllText("./templates/route.definition.ts")
         .Replace("<--CLASS-->", className)
-        .Replace("<--ROUTES-->", string.Join(newLine, routes));
+        .Replace("<--ROUTES-->", string.Join(options.newLine.value, routes));
     }
 }

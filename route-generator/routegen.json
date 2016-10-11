@@ -1,0 +1,14 @@
+{
+    "urlEnvironmentVariable": {
+        "isAvailable": true,
+        "identifier": "{{API_URL}}"
+    },
+    "trailingComma": true,
+    "tab": {
+        "value": "\t"
+    },
+    "newLine": {
+        "useSystemDefault": true,
+        "value": ""
+    }
+}

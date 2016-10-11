@@ -11,6 +11,14 @@
             ],
             "isBuildCommand": true,
             "problemMatcher": "$msCompile"
+        },
+        {
+            "taskName": "run",
+            "args": ["dotnet run"]
+        },
+        {
+            "taskName": "restore",
+            "args": ["dotnet restore"]
         }
     ]
 }
